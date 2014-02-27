@@ -71,6 +71,12 @@
 											   object:nil];
 }
 
+-(void)viewDidLoad{
+    [super viewDidLoad];
+    
+    
+}
+
 - (void)didBecomeActive:(id)sender
 {
 	[self showNavbar];
@@ -117,7 +123,7 @@
 			self.compatibilityHeight = (UIInterfaceOrientationIsPortrait([[UIApplication sharedApplication] statusBarOrientation]) ? 44 : 32);
 			self.statusBar = 0;
 		} else {
-			self.deltaLimit = (UIInterfaceOrientationIsPortrait([[UIApplication sharedApplication] statusBarOrientation]) ? 24 : 12);
+			self.deltaLimit = (UIInterfaceOrientationIsPortrait([[UIApplication sharedApplication] statusBarOrientation]) ? 0 : 12);
 			self.compatibilityHeight = (UIInterfaceOrientationIsPortrait([[UIApplication sharedApplication] statusBarOrientation]) ? 64 : 52);
 			self.statusBar = 20;
 		}
@@ -126,27 +132,25 @@
 
 - (void)showNavbar
 {
-	if (self.scrollableView != nil) {
-		if (self.isCollapsed) {
-			CGRect rect;
-			if ([self.scrollableView isKindOfClass:[UIWebView class]]) {
-				rect = ((UIWebView*)self.scrollableView).scrollView.frame;
-			} else {
-				rect = self.scrollableView.frame;
-			}
-			rect.origin.y = 0;
-			if ([self.scrollableView isKindOfClass:[UIWebView class]]) {
-				((UIWebView*)self.scrollableView).scrollView.frame = rect;
-			} else {
-				self.scrollableView.frame = rect;
-			}
-			[UIView animateWithDuration:0.2 animations:^{
-				self.lastContentOffset = 0;
-				[self scrollWithDelta:-self.compatibilityHeight];
-			}];
+	if (self.isCollapsed) {
+		CGRect rect;
+		if ([self.scrollableView isKindOfClass:[UIWebView class]]) {
+			rect = ((UIWebView*)self.scrollableView).scrollView.frame;
 		} else {
-			[self updateNavbarAlpha:self.compatibilityHeight];
+			rect = self.scrollableView.frame;
 		}
+		rect.origin.y = -self.compatibilityHeight; // The magic number (navbar standard size + statusbar)
+		if ([self.scrollableView isKindOfClass:[UIWebView class]]) {
+			((UIWebView*)self.scrollableView).scrollView.frame = rect;
+		} else {
+			self.scrollableView.frame = rect;
+		}
+		[UIView animateWithDuration:0.2 animations:^{
+			self.lastContentOffset = 0;
+			[self scrollWithDelta:-self.compatibilityHeight];
+		}];
+	} else {
+        //		[self updateNavbarAlpha:self.compatibilityHeight];
 	}
 }
 
@@ -179,11 +183,13 @@
 	CGRect frame;
 	
 	if (delta > 0) {
+        // DOWN (collapsing)
 		if (self.isCollapsed) {
 			return;
 		}
 		
 		frame = self.navigationController.navigationBar.frame;
+        //        NSLog(@"%f",frame.origin.y);
 		
 		if (frame.origin.y - delta < -self.deltaLimit) {
 			delta = frame.origin.y + self.deltaLimit;
@@ -196,11 +202,12 @@
 			self.isCollapsed = YES;
 			self.isExpanded = NO;
 		}
-		
+        
 		[self updateSizingWithDelta:delta];
 	}
 	
 	if (delta < 0) {
+        //UP (expanding)
 		if (self.isExpanded) {
 			return;
 		}
@@ -227,7 +234,7 @@
 	CGFloat pos = self.navigationController.navigationBar.frame.origin.y;
 	
 	// Get back down
-	if (pos >= -2) {
+	if (pos >= (self.statusBar -self.deltaLimit)/2) {
 		[UIView animateWithDuration:0.2 animations:^{
 			CGRect frame;
 			frame = self.navigationController.navigationBar.frame;
@@ -237,7 +244,7 @@
 			
 			self.isExpanded = YES;
 			self.isCollapsed = NO;
-			
+            
 			[self updateSizingWithDelta:delta];
 			
 			// This line needs tweaking
@@ -264,26 +271,27 @@
 {
 	// At this point the navigation bar is already been placed in the right position, it'll be the reference point for the other views'sizing
 	CGRect frame = self.navigationController.navigationBar.frame;
-	
+    
+    NSLog(@"updatenavbaralpha:%f", delta);
 	[self updateNavbarAlpha:delta];
-	
+    
 	// Move and expand (or shrink) the superview of the given scrollview
 	frame = self.scrollableView.superview.frame;
     frame.origin.y -= delta;
 	frame.size.height += delta;
 	self.scrollableView.superview.frame = frame;
-	
+    
 	// Changing the layer's frame avoids UIWebView's glitchiness
 	frame = self.scrollableView.frame;
 	frame.size.height = self.scrollableView.superview.frame.size.height - frame.origin.y;
-	
+    
 	// if the scrolling view is a UIWebView, we need to adjust its scrollview's frame.
 	if ([self.scrollableView isKindOfClass:[UIWebView class]]) {
 		((UIWebView*)self.scrollableView).scrollView.frame = frame;
 	} else {
 		self.scrollableView.frame = frame;
 	}
-	
+    
 	// Keeps the view's scroll position steady until the navbar is gone
 	if ([self.scrollableView isKindOfClass:[UIScrollView class]]) {
 		[(UIScrollView*)self.scrollableView setContentOffset:CGPointMake(((UIScrollView*)self.scrollableView).contentOffset.x, ((UIScrollView*)self.scrollableView).contentOffset.y - delta)];
@@ -297,23 +305,32 @@
 	CGRect frame = self.navigationController.navigationBar.frame;
 	
 	// Change the alpha channel of every item on the navbr. The overlay will appear, while the other objects will disappear, and vice versa
-	float alpha = (frame.origin.y + self.deltaLimit) / frame.size.height;
-	[self.overlay setAlpha:1 - alpha];
+    //	float alpha = (frame.origin.y + delta) / frame.size.height;
+    
+    float alpha = (frame.origin.y/(self.statusBar+self.deltaLimit));
+    
+    //	[self.overlay setAlpha:1 - alpha];
 	[self.navigationItem.leftBarButtonItems enumerateObjectsUsingBlock:^(UIBarButtonItem* obj, NSUInteger idx, BOOL *stop) {
 		obj.customView.alpha = alpha;
 	}];
 	[self.navigationItem.rightBarButtonItems enumerateObjectsUsingBlock:^(UIBarButtonItem* obj, NSUInteger idx, BOOL *stop) {
 		obj.customView.alpha = alpha;
 	}];
-	self.navigationItem.titleView.alpha = alpha;
+    //	self.navigationItem.titleView.alpha = alpha;
 	self.navigationController.navigationBar.tintColor = [self.navigationController.navigationBar.tintColor colorWithAlphaComponent:alpha];
+    
+    
+    UILabel *label = [self.navigationItem.titleView subviews][0];
+    CGFloat scale = MAX((frame.origin.y/self.statusBar)+((1-(frame.origin.y/self.statusBar))*0.5), 0.5f);
+    
+    [label setTransform:CGAffineTransformMakeScale(scale, scale)];
+    CGPoint center = CGPointMake(label.center.x, (self.navigationItem.titleView.frame.size.height-(40*scale))+(40*scale/2));
+    [label setCenter:center];
 }
 
 - (void)refreshNavbar
 {
-	if (self.scrollableView != nil) {
-		[self.navigationController.navigationBar bringSubviewToFront:self.overlay];
-	}
+	[self.navigationController.navigationBar bringSubviewToFront:self.overlay];
 }
 
 @end
