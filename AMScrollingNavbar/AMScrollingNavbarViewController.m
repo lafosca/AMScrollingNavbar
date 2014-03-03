@@ -159,6 +159,13 @@
 	return YES;
 }
 
+-(BOOL)gestureRecognizerShouldBegin:(UIGestureRecognizer *)gestureRecognizer{
+    if ([self.scrollableView isKindOfClass:[UIScrollView class]] && [(UIScrollView*)self.scrollableView contentSize].height < self.scrollableView.frame.size.height) {
+        return NO;
+    }
+	return YES;
+}
+
 - (void)handlePan:(UIPanGestureRecognizer*)gesture
 {
 	if (self.scrollingEnabled == NO) {
