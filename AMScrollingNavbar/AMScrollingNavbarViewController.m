@@ -326,9 +326,10 @@
     //	self.navigationItem.titleView.alpha = alpha;
 	self.navigationController.navigationBar.tintColor = [self.navigationController.navigationBar.tintColor colorWithAlphaComponent:alpha];
     
+    CGFloat maxScale = 0.75;
     
     UILabel *label = [self.navigationItem.titleView subviews][0];
-    CGFloat scale = MAX((frame.origin.y/self.statusBar)+((1-(frame.origin.y/self.statusBar))*0.5), 0.5f);
+    CGFloat scale = MAX((frame.origin.y/self.statusBar)+((1-(frame.origin.y/self.statusBar))*maxScale), maxScale);
     
     [label setTransform:CGAffineTransformMakeScale(scale, scale)];
     CGPoint center = CGPointMake(label.center.x, (self.navigationItem.titleView.frame.size.height-(40*scale))+(40*scale/2));
